@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WhatsApp Style Chat</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background:linear-gradient(135deg,#075e54 0%,#128c7e 100%);
+      height:100vh; display:flex; justify-content:center; align-items:center;
+    }
+    .chat-container { width:90vw; height:90vh; max-width:1400px; background:white; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.3); display:flex; overflow:hidden; }
+    .sidebar { width:350px; background:#f0f0f0; border-right:1px solid #e0e0e0; display:flex; flex-direction:column; }
+    .user-profile { background:#075e54; color:white; padding:20px; display:flex; align-items:center; gap:15px; }
+    .user-avatar { width:50px; height:50px; border-radius:50%; background:#128c7e; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:20px; }
+    .user-info h3 { margin:0; font-size:16px; }
+    .user-info p { margin:2px 0 0 0; font-size:12px; opacity:.8; }
+
+    .search-container { padding:15px; background:white; border-bottom:1px solid #e0e0e0; position:relative; }
+    .search-box { width:100%; padding:10px 15px; border:none; background:#f5f5f5; border-radius:20px; font-size:14px; outline:none; transition:all .3s ease; }
+    .search-box:focus { background:white; box-shadow:0 0 0 2px #25d366; }
+
+    .search-results { position:absolute; top:100%; left:15px; right:15px; background:white; border:1px solid #e0e0e0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.1); max-height:300px; overflow-y:auto; z-index:1000; display:none; }
+    .search-results.active { display:block; }
+    .search-result-item { display:flex; align-items:center; padding:12px 15px; border-bottom:1px solid #f0f0f0; cursor:pointer; transition:background .2s; }
+    .search-result-item:hover { background:#f8f9fa; }
+    .search-result-item:last-child { border-bottom:none; }
+    .search-result-avatar { width:40px; height:40px; border-radius:50%; background:#25d366; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; margin-right:12px; }
+    .search-result-name { font-weight:600; font-size:14px; margin-bottom:2px; }
+    .search-result-email { font-size:12px; color:#666; }
+    .search-result-status { font-size:11px; color:#999; }
+    .status-online { color:#25d366; } .status-offline { color:#999; }
+
+    .contacts-list { flex:1; overflow-y:auto; }
+    .contact-item { display:flex; align-items:center; padding:15px; border-bottom:1px solid #f0f0f0; cursor:pointer; transition:background .2s; }
+    .contact-item:hover { background:#f5f5f5; }
+    .contact-item.active { background:#e9edef; }
+    .contact-avatar { width:45px; height:45px; border-radius:50%; background:#25d366; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; margin-right:15px; position:relative; }
+    .contact-avatar::after { content:''; position:absolute; bottom:2px; right:2px; width:12px; height:12px; border:2px solid white; border-radius:50%; background:#ddd; }
+    .contact-avatar.online::after { background:#25d366; }
+    .contact-avatar.away::after { background:#ffb300; }
+    .contact-info { flex:1; }
+    .contact-name { font-weight:600; margin-bottom:3px; }
+    .last-message { font-size:13px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .contact-time { font-size:11px; color:#999; }
+
+    .chat-area { flex:1; display:flex; flex-direction:column; background:#e5ddd5; position:relative; }
+    .chat-header { background:#f0f0f0; padding:15px 20px; border-bottom:1px solid #e0e0e0; display:flex; align-items:center; justify-content:space-between; }
+    .current-chat-info { display:flex; align-items:center; gap:15px; }
+    .chat-avatar { width:45px; height:45px; border-radius:50%; background:#25d366; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; }
+    .chat-user-info h3 { margin:0; font-size:16px; }
+    .chat-user-info p { margin:2px 0 0 0; font-size:13px; color:#666; }
+
+    .messages-container { flex:1; padding:20px; overflow-y:auto; background-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.05"><path fill="%23075e54" d="M30,30 C40,20 60,20 70,30 C80,40 80,60 70,70 C60,80 40,80 30,70 C20,60 20,40 30,30 Z"/></svg>'); }
+    .message { max-width:65%; margin-bottom:15px; padding:8px 12px; border-radius:8px; position:relative; animation:messageAppear .3s ease-out; }
+    @keyframes messageAppear { from {opacity:0; transform:translateY(10px);} to {opacity:1; transform:translateY(0);} }
+    .message.sent { background:#dcf8c6; margin-left:auto; border-top-right-radius:0; }
+    .message.received { background:white; margin-right:auto; border-top-left-radius:0; }
+    .message-content { font-size:14px; line-height:1.4; }
+    .message-time { font-size:11px; color:#999; text-align:right; margin-top:3px; }
+    .message.received .message-time { text-align:left; }
+    .message-status { margin-left:5px; font-size:10px; }
+    .status-delivered { color:#999; } .status-read { color:#53bdeb; }
+
+    .typing-indicator { display:flex; align-items:center; gap:5px; padding:10px 15px; background:white; border-radius:8px; max-width:70px; margin-bottom:15px; border-top-left-radius:0; }
+    .typing-dot { width:8px; height:8px; background:#999; border-radius:50%; animation:typingAnimation 1.4s infinite; }
+    .typing-dot:nth-child(2){ animation-delay:.2s; } .typing-dot:nth-child(3){ animation-delay:.4s; }
+    @keyframes typingAnimation { 0%,60%,100%{ transform:translateY(0);} 30%{ transform:translateY(-5px);} }
+
+    .message-input-container { background:#f0f0f0; padding:15px 20px; display:flex; align-items:center; gap:15px; }
+    .input-action-btn { background:none; border:none; color:#54656f; font-size:20px; cursor:pointer; padding:5px; }
+    .message-input { flex:1; padding:12px 15px; border:none; border-radius:20px; outline:none; font-size:14px; background:white; }
+    .send-button { background:#25d366; border:none; width:40px; height:40px; border-radius:50%; color:white; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .2s; }
+    .send-button:hover { background:#128c7e; }
+    .send-button:disabled { background:#ccc; cursor:not-allowed; }
+
+    .connection-status { position:absolute; top:10px; right:10px; background:rgba(0,0,0,.7); color:white; padding:5px 10px; border-radius:15px; font-size:12px; z-index:1000; }
+    .status-online { background:#25d366; } .status-offline { background:#ff4444; }
+
+    .token-section { background:#fff3cd; padding:10px 15px; border-bottom:1px solid #ffeaa7; }
+    .token-input { width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:12px; margin-bottom:5px; }
+    .token-btn { background:#007bff; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px; }
+    .token-btn:hover { background:#0056b3; }
+
+    .no-contacts-message { text-align:center; padding:30px 20px; color:#666; font-style:italic; background:#f8f9fa; border-radius:8px; margin:20px; }
+    .search-highlight { background-color:#fff3cd; border-left:3px solid #ffc107; }
+
+    @media (max-width:768px){
+      .chat-container{ width:100vw; height:100vh; border-radius:0; }
+      .sidebar{ width:100%; }
+      .chat-area{ display:none; }
+      .chat-area.active{ display:flex; }
+    }
+  </style>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="chat-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="user-profile">
+        <div class="user-avatar" id="userAvatar">U</div>
+        <div class="user-info">
+          <h3 id="userName">Carregando...</h3>
+          <p id="userStatus">Conectando...</p>
+        </div>
+      </div>
+
+      <div class="token-section">
+        <input class="token-input" id="tokenInput" placeholder="Cole seu token JWT aqui"
+          value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJqb2FvX3VzZXJfaWQiLCJlbWFpbCI6ImpvYW9AZW1haWwuY29tIiwiaWF0IjoxNzYxMzQ3Mjk0LCJleHAiOjE3NjE5NTIwOTR9.7QnC8t8vE7s6Y2V1W8xK9zR2A5B3C4D6E7F8G9H0I1J">
+        <button class="token-btn" onclick="updateToken()">Atualizar Token</button>
+      </div>
+
+      <div class="search-container">
+        <input class="search-box" id="searchContacts" placeholder="Pesquisar por nome ou email...">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+
+      <div class="contacts-list" id="contactsList">
+        <div class="loading-messages">Carregando conversas...</div>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="chat-area">
+      <div class="connection-status status-offline" id="connectionStatus">🔴 Offline</div>
+
+      <div class="chat-header">
+        <div class="current-chat-info">
+          <div class="chat-avatar" id="currentChatAvatar">💬</div>
+          <div class="chat-user-info">
+            <h3 id="currentChatName">Selecione uma conversa</h3>
+            <p id="currentChatStatus" class="last-seen">Clique em um contato para conversar</p>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <button class="chat-action-btn">📎</button>
+          <button class="chat-action-btn">🔍</button>
+          <button class="chat-action-btn">⋮</button>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messagesContainer">
+        <div class="message received">
+          <div class="message-content">Bem-vindo ao chat! Selecione um contato para começar a conversar.</div>
+          <div class="message-time">Agora</div>
+        </div>
+      </div>
+
+      <div class="message-input-container">
+        <div class="input-actions">
+          <button class="input-action-btn">😊</button>
+          <button class="input-action-btn">📎</button>
+        </div>
+        <input class="message-input" id="messageInput" placeholder="Digite uma mensagem" disabled>
+        <button class="send-button" id="sendButton" disabled>➤</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Config =====
+    let socket = null;
+    let currentUser = null;
+    let currentChat = null;
+    let conversations = [];
+    let token = '';
+    let currentSearchTerm = '';
+    let searchTimeout = null;
+    const serverBaseUrl = 'http://localhost:3000';
+
+    // anti-duplicação
+    let eventsBound = false;
+    const seenMessages = new Set();
+
+    // ===== DOM =====
+    const connectionStatus = document.getElementById('connectionStatus');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    const contactsList = document.getElementById('contactsList');
+    const searchContacts = document.getElementById('searchContacts');
+    const searchResults = document.getElementById('searchResults');
+    const currentChatName = document.getElementById('currentChatName');
+    const currentChatStatus = document.getElementById('currentChatStatus');
+    const currentChatAvatar = document.getElementById('currentChatAvatar');
+    const userName = document.getElementById('userName');
+    const userStatus = document.getElementById('userStatus');
+    const tokenInput = document.getElementById('tokenInput');
+
+    // ===== Token =====
+    function initializeToken() {
+      token = tokenInput.value ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJqb2FvX3VzZXJfaWQiLCJlbWFpbCI6ImpvYW9AZW1haWwuY29tIiwiaWF0IjoxNzYxMzQ3Mjk0LCJleHAiOjE3NjE5NTIwOTR9.7QnC8t8vE7s6Y2V1W8xK9zR2A5B3C4D6E7F8G9H0I1J';
+      console.log('🔑 Token inicial configurado');
+    }
+    function updateToken() {
+      token = tokenInput.value.trim();
+      if (!token) return addSystemMessage('❌ Por favor, insira um token válido', true);
+      addSystemMessage('✅ Token atualizado! Reconectando...');
+      if (socket) {
+        socket.removeAllListeners();   // <- limpa handlers antigos
+        socket.disconnect();
+        eventsBound = false;           // <- permite rebind seguro
+      }
+      connectSocket();
+    }
+
+    // ===== Busca usuários =====
+    async function searchUsers(searchTerm) {
+      if (!searchTerm || searchTerm.length < 2) { hideSearchResults(); return; }
+      try {
+        const response = await fetch(`${serverBaseUrl}/api/users/search?search=${encodeURIComponent(searchTerm)}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) throw new Error('Erro na busca: ' + response.status);
+        const data = await response.json();
+        if (data.success && data.users) displaySearchResults(data.users, searchTerm); else showNoResults();
+      } catch (e){ console.error('❌ Erro na busca:', e); showNoResults(); }
+    }
+    function displaySearchResults(users) {
+      if (!users || users.length === 0) return showNoResults();
+      const resultsHTML = users.map(u => `
+        <div class="search-result-item" onclick="startChatWithUser('${u.id}','${u.name}','${u.avatar || u.name.charAt(0)}')">
+          <div class="search-result-avatar ${u.status === 'online' ? 'online' : ''}">${u.avatar || u.name.charAt(0)}</div>
+          <div class="search-result-info">
+            <div class="search-result-name">${u.name}</div>
+            <div class="search-result-email">${u.email}</div>
+            <div class="search-result-status ${u.status === 'online' ? 'status-online' : 'status-offline'}">
+              ${u.status === 'online' ? '🟢 Online' : '⚫ Offline'}
+            </div>
+          </div>
+        </div>
+      `).join('');
+      searchResults.innerHTML = resultsHTML;
+      searchResults.classList.add('active');
+    }
+    function startChatWithUser(userId, userName, userAvatar) {
+      hideSearchResults(); searchContacts.value = ''; selectChat(userId, userName, userAvatar);
+    }
+    function showNoResults(){ searchResults.innerHTML='<div class="no-results">Nenhum usuário encontrado</div>'; searchResults.classList.add('active'); }
+    function hideSearchResults(){ searchResults.classList.remove('active'); searchResults.innerHTML=''; }
+
+    // ===== Socket =====
+    function connectSocket() {
+      try {
+        initializeToken();
+        if (socket) {
+          socket.removeAllListeners();
+          socket.disconnect();
+          eventsBound = false;
+        }
+
+        console.log('🔗 Conectando ao servidor...');
+        socket = io(serverBaseUrl, { transports:['websocket','polling'], auth:{ token } });
+
+        socket.on('connect', function(){
+          updateConnectionStatus(true);
+          addSystemMessage('✅ Conectado ao servidor');
+          console.log('✅ Socket conectado:', socket.id);
+          authenticate();
+        });
+
+        // registra ouvintes UMA vez
+        if (!eventsBound) {
+          bindSocketEvents();
+          eventsBound = true;
+        }
+
+      } catch (error) {
+        console.error('❌ Erro ao conectar:', error);
+        addSystemMessage('❌ Erro de conexão: ' + error.message, true);
+      }
+    }
+
+    function bindSocketEvents() {
+      socket.on('auth_success', handleAuthenticationSuccess);
+
+      socket.on('authenticated', data => {
+        currentUser = data.user;
+        userName.textContent = currentUser.name || currentUser.email || 'Usuário';
+        userStatus.textContent = '🟢 Online';
+        loadConversations();
+      });
+
+      // === LISTENER ÚNICO + DEDUPE + RENDER AO VIVO ===
+      socket.on('new_message', function (data) {
+        const from = data.senderId ?? data.from;
+        const to   = data.receiverId ?? data.to;
+        const text = data.content ?? data.message ?? '';
+        const ts   = data.timestamp ?? data.createdAt ?? new Date().toISOString();
+        const key  = data.messageId || data.clientId || `${from}|${to}|${ts}|${text}`;
+
+        if (!from || !to) {
+          console.warn('new_message sem IDs válidos:', data);
+          return;
+        }
+        if (seenMessages.has(key)) return; // evita duplicação por eco
+        seenMessages.add(key);
+
+        const me = currentUser?.id;
+        const chatIsOpenWithSender    = currentChat && currentChat === from;
+        const chatIsOpenWithRecipient = currentChat && currentChat === to;
+
+        const isMyIncoming = (to === me && chatIsOpenWithSender);   // recebi do contato aberto
+        const isMyEchoOut  = (from === me && chatIsOpenWithRecipient); // eco do que enviei ao contato aberto
+
+        if (isMyIncoming || isMyEchoOut) {
+          const sent = from === me;
+          addMessage(from, text, sent, ts);
+          if (isMyIncoming) markMessagesAsRead();
+        } else {
+          // conversa não está aberta — atualiza lista e badge
+          const other = (to === me) ? from : to;
+          updateConversationLastMessage(other, text);
+          bumpUnread(other);
+          if (to === me) addSystemMessage(`💬 Nova mensagem de ${data.senderName || from}`);
+        }
+
+        // mantém conversas sincronizadas
+        loadConversations();
+      });
+
+      socket.on('conversations_loaded', data => {
+        conversations = data.conversations || [];
+        renderConversations(conversations);
+      });
+
+      socket.on('message_delivered', data => { updateMessageStatus(data.messageId, 'delivered'); });
+      socket.on('message_read', data => { updateMessageStatus(data.messageId, 'read'); });
+
+      socket.on('messages_loaded', data => { displayMessageHistory(data.messages); });
+
+      socket.on('user_online', data => { addSystemMessage(`🟢 ${data.userName || data.userId} está online`); updateUserStatus(data.userId,'online'); });
+      socket.on('user_offline', data => { addSystemMessage(`🔴 ${data.userName || data.userId} está offline`); updateUserStatus(data.userId,'offline'); });
+
+      socket.on('disconnect', reason => {
+        updateConnectionStatus(false);
+        addSystemMessage('❌ Desconectado do servidor: ' + reason, true);
+        console.log('❌ Socket desconectado:', reason);
+      });
+
+      socket.on('connect_error', error => {
+        updateConnectionStatus(false);
+        addSystemMessage('❌ Erro de conexão: ' + error.message, true);
+        console.error('❌ Erro de conexão:', error);
+      });
+    }
+
+    function handleAuthenticationSuccess(data){
+      currentUser = data.user;
+      userName.textContent = currentUser.name || currentUser.email || 'Usuário';
+      userStatus.textContent = '🟢 Online';
+      if (data.conversations) { conversations = data.conversations; renderConversations(conversations); }
+      else { loadConversations(); }
+      addSystemMessage(`✅ Bem-vindo, ${userName.textContent}!`);
+    }
+
+    function authenticate() {
+      if (socket && socket.connected) {
+        const userId = getUserIdFromToken();
+        if (!userId) return addSystemMessage('❌ Token inválido - não foi possível extrair userId', true);
+        console.log('🔐 Autenticando usuário:', userId);
+        socket.emit('authenticate', { userId, token });
+      } else addSystemMessage('❌ Socket não conectado', true);
+    }
+
+    function loadConversations() {
+      if (socket && socket.connected && currentUser) {
+        socket.emit('load_conversations', { userId: currentUser.id });
+      }
+    }
+
+    function getUserIdFromToken() {
+      if (!token) return null;
+      try { const payload = JSON.parse(atob(token.split('.')[1])); return payload.userId || payload.id || null; }
+      catch { return null; }
+    }
+
+    // ===== UI =====
+    function renderConversations(conversationsList) {
+      console.log('📋 Renderizando conversas:', conversationsList);
+
+      if (!conversationsList || conversationsList.length === 0) {
+        contactsList.innerHTML = `
+          <div class="contact-item" onclick="selectChat('joao_user_id','João Silva','J')">
+            <div class="contact-avatar online">J</div>
+            <div class="contact-info"><div class="contact-name">João Silva</div><div class="last-message">Clique para iniciar conversa</div></div>
+            <div class="contact-time">--:--</div>
+          </div>
+          <div class="contact-item" onclick="selectChat('maria_user_id','Maria Santos','M')">
+            <div class="contact-avatar online">M</div>
+            <div class="contact-info"><div class="contact-name">Maria Santos</div><div class="last-message">Clique para iniciar conversa</div></div>
+            <div class="contact-time">--:--</div>
+          </div>`;
+        return;
+      }
+
+      contactsList.innerHTML = conversationsList.map(conv => {
+        let rawOther =
+          conv?.participantDetails?.find((p) => p.id !== currentUser?.id) ??
+          conv?.participants?.find((p) => p !== currentUser?.id);
+
+        let otherUser =
+          typeof rawOther === 'string'
+            ? { id: rawOther, name: rawOther, avatar: rawOther[0]?.toUpperCase() || '?' }
+            : (rawOther || { id: 'unknown', name: 'Usuário', avatar: '?' });
+
+        const unreadCount =
+          (conv?.unreadCount && typeof conv.unreadCount === 'object'
+            ? conv.unreadCount[currentUser?.id] || 0
+            : conv?.unreadCount || 0);
+
+        const lastMsgRaw = conv?.lastMessage;
+        const lastMessage =
+          typeof lastMsgRaw === 'string'
+            ? lastMsgRaw
+            : (lastMsgRaw?.content || 'Nova conversa');
+        const lastTime =
+          typeof lastMsgRaw === 'string'
+            ? conv?.updatedAt
+            : (lastMsgRaw?.timestamp || conv?.updatedAt);
+
+        return `
+          <div class="contact-item" onclick="selectChat('${otherUser.id}','${otherUser.name}','${otherUser.avatar || (otherUser.name?.charAt(0) || '?')}')">
+            <div class="contact-avatar ${otherUser.status === 'online' ? 'online':'away'}">${otherUser.avatar || (otherUser.name?.charAt(0) || '?')}</div>
+            <div class="contact-info">
+              <div class="contact-name">${otherUser.name}</div>
+              <div class="last-message">${lastMessage}</div>
+            </div>
+            <div class="contact-time">${formatTime(lastTime)}</div>
+            ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
+          </div>`;
+      }).join('');
+    }
+
+    function selectChat(userId, userName, userAvatar) {
+      if (!currentUser) return addSystemMessage('❌ Por favor, aguarde a autenticação', true);
+      if (!userId) { console.warn('selectChat sem userId válido', { userId, userName }); addSystemMessage('❌ Contato inválido', true); return; }
+
+      currentChat = userId;
+
+      document.querySelectorAll('.contact-item').forEach(i => i.classList.remove('active'));
+      const match = Array.from(document.querySelectorAll('.contact-item'))
+        .find(el => el.getAttribute('onclick')?.includes(userId));
+      if (match) match.classList.add('active');
+
+      currentChatName.textContent = userName || userId;
+      currentChatAvatar.textContent = userAvatar || (userName?.charAt(0) || userId?.charAt(0) || '💬');
+      currentChatStatus.textContent = '🟢 Online';
+
+      messagesContainer.innerHTML = '<div class="loading-messages">Carregando mensagens...</div>';
+      messageInput.disabled = false;
+      sendButton.disabled = false;
+      messageInput.placeholder = `Digite uma mensagem para ${userName || userId}`;
+
+      if (socket && socket.connected) {
+        socket.emit('load_messages', { userId: currentUser.id, otherUser: userId });
+      }
+      markMessagesAsRead();
+    }
+
+    function displayMessageHistory(messages) {
+      messagesContainer.innerHTML = '';
+      if (!messages || messages.length === 0) {
+        addSystemMessage('💬 Nenhuma mensagem anterior. Comece a conversar!');
+        return;
+      }
+      messages.forEach(msg => {
+        const sender = msg.senderId ?? msg.from;
+        const isSent = sender === currentUser.id;
+        const ts = msg.timestamp || msg.createdAt || new Date().toISOString();
+        addMessage(sender, msg.content, isSent, ts, true);
+      });
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      messageInput.focus();
+    }
+
+    function sendMessage() {
+      const message = messageInput.value.trim();
+      if (!message || !currentChat || !socket || !socket.connected || !currentUser) {
+        return addSystemMessage('❌ Não é possível enviar mensagem', true);
+      }
+      const nowISO = new Date().toISOString();
+      const clientId = 'cli_' + nowISO + '_' + Math.random().toString(36).slice(2);
+
+      // Envia nos DOIS formatos + clientId
+      socket.emit('send_message', {
+        senderId: currentUser.id,
+        receiverId: currentChat,
+        from: currentUser.id,
+        to: currentChat,
+        content: message,
+        timestamp: nowISO,
+        clientId
+      });
+
+      // marca pro dedupe quando eco voltar
+      seenMessages.add(clientId);
+
+      // Otimista
+      addMessage(currentUser.id, message, true, nowISO);
+      messageInput.value = '';
+      updateConversationLastMessage(currentChat, message);
+    }
+
+    function addMessage(sender, content, isSent=false, timestamp=null, isHistory=false){
+      const el = document.createElement('div');
+      el.className = `message ${isSent ? 'sent':'received'}`;
+      if (isHistory) el.style.animation = 'none';
+      const time = timestamp ? new Date(timestamp).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) :
+                               new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      el.innerHTML = `<div class="message-content">${content}</div>
+                      <div class="message-time">${time} ${isSent ? '<span class="message-status status-delivered">✓✓</span>' : ''}</div>`;
+      messagesContainer.appendChild(el);
+      if (!isHistory) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function markMessagesAsRead(){
+      if (currentUser && currentChat && socket && socket.connected) {
+        socket.emit('mark_as_read', { userId: currentUser.id, otherUser: currentChat });
+      }
+    }
+
+    function updateConversationLastMessage(contactId, message){
+      const items = document.querySelectorAll('.contact-item');
+      items.forEach(item => {
+        if (item.getAttribute('onclick')?.includes(contactId)) {
+          const lastMessage = item.querySelector('.last-message');
+          const lastTime = item.querySelector('.contact-time');
+          if (lastMessage) lastMessage.textContent = message;
+          if (lastTime) lastTime.textContent = 'Agora';
+        }
+      });
+    }
+
+    function bumpUnread(contactId) {
+      const item = Array.from(document.querySelectorAll('.contact-item'))
+        .find(el => el.getAttribute('onclick')?.includes(contactId));
+      if (!item) return;
+      let badge = item.querySelector('.unread-badge');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'unread-badge';
+        badge.textContent = '1';
+        item.appendChild(badge);
+      } else {
+        const n = parseInt(badge.textContent || '0', 10) + 1;
+        badge.textContent = String(n);
+      }
+    }
+
+    function updateMessageStatus(messageId, status){
+      const msgs = messagesContainer.querySelectorAll('.message.sent');
+      msgs.forEach(msg => {
+        const statusEl = msg.querySelector('.message-status');
+        if (statusEl) {
+          if (status === 'delivered') statusEl.textContent = '✓✓';
+          else if (status === 'read') { statusEl.textContent = '✓✓'; statusEl.className = 'message-status status-read'; }
+        }
+      });
+    }
+
+    function updateUserStatus(userId, status){
+      document.querySelectorAll('.contact-item').forEach(item => {
+        if (item.getAttribute('onclick')?.includes(userId)) {
+          const avatar = item.querySelector('.contact-avatar');
+          if (avatar) { avatar.classList.remove('online','away'); if (status === 'online') avatar.classList.add('online'); }
+        }
+      });
+    }
+
+    function formatTime(dateString){
+      if (!dateString) return '--:--';
+      const d = new Date(dateString), now = new Date();
+      const diffMs = now - d, diffM = Math.floor(diffMs/60000), diffH = Math.floor(diffMs/3600000), diffD = Math.floor(diffMs/86400000);
+      if (diffM < 1) return 'Agora';
+      if (diffM < 60) return `${diffM}m`;
+      if (diffH < 24) return `${diffH}h`;
+      if (diffD < 7) return `${diffD}d`;
+      return d.toLocaleDateString('pt-BR');
+    }
+
+    function addSystemMessage(content, isError=false){
+      const el = document.createElement('div');
+      el.style.textAlign='center'; el.style.margin='10px 0'; el.style.fontSize='12px';
+      el.style.color = isError ? '#ff4444' : '#666'; el.style.fontStyle='italic';
+      el.textContent = content; messagesContainer.appendChild(el);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function updateConnectionStatus(connected){
+      if (connected){ connectionStatus.textContent='🟢 Online'; connectionStatus.className='connection-status status-online'; }
+      else { connectionStatus.textContent='🔴 Offline'; connectionStatus.className='connection-status status-offline'; }
+    }
+
+    // ===== Listeners =====
+    messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+    sendButton.addEventListener('click', sendMessage);
+    searchContacts.addEventListener('input', e => {
+      const searchTerm = e.target.value.trim(); currentSearchTerm = searchTerm; filterContacts(searchTerm);
+      if (searchTimeout) clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        if (searchTerm === currentSearchTerm) {
+          if (searchTerm.length >= 2) searchUsers(searchTerm); else hideSearchResults();
+        }
+      }, 500);
+    });
+    document.addEventListener('click', e => {
+      if (!searchContacts.contains(e.target) && !searchResults.contains(e.target)) hideSearchResults();
+    });
+
+    function filterContacts(searchTerm){
+      const items = document.querySelectorAll('.contact-item'); let any=false;
+      items.forEach(item => {
+        const nameEl = item.querySelector('.contact-name'); const lastEl = item.querySelector('.last-message');
+        if (!nameEl || !lastEl) return;
+        const name = nameEl.textContent; const last = lastEl.textContent;
+        nameEl.innerHTML = name; lastEl.innerHTML = last;
+        const nameMatches = name.toLowerCase().includes(searchTerm.toLowerCase());
+        const msgMatches = last.toLowerCase().includes(searchTerm.toLowerCase());
+        const show = (nameMatches || msgMatches || searchTerm==='');
+        item.style.display = show ? 'flex' : 'none';
+        if (show) {
+          any = true; item.classList.add('search-highlight');
+          if (searchTerm && nameMatches) nameEl.innerHTML = highlightText(name, searchTerm);
+          if (searchTerm && msgMatches) lastEl.innerHTML = highlightText(last, searchTerm);
+        } else item.classList.remove('search-highlight');
+      });
+      let noneMsg = contactsList.querySelector('.no-contacts-message');
+      if (!any && searchTerm !== '') {
+        if (!noneMsg) {
+          noneMsg = document.createElement('div'); noneMsg.className='no-contacts-message';
+          noneMsg.innerHTML = `<div style="font-size:48px; margin-bottom:10px;">🔍</div>
+                               <div>Nenhum contato encontrado para "<strong>${searchTerm}</strong>"</div>`;
+          contactsList.appendChild(noneMsg);
+        }
+      } else if (noneMsg) noneMsg.remove();
+    }
+
+    function highlightText(text, searchTerm){
+      if (!searchTerm) return text;
+      const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&')})`,'gi');
+      return text.replace(regex, '<mark style="background-color:#fff3cd; padding:2px 4px; border-radius:2px;">$1</mark>');
+    }
+
+    // ===== Start =====
+    function init(){ initializeToken(); connectSocket(); addSystemMessage('🔗 Conectando ao servidor...'); }
+    init();
+  </script>
+</body>
+</html>
