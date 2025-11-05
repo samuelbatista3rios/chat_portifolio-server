@@ -7,14 +7,15 @@ import { setIO } from "./io";
 
 dotenv.config();
 
+// Ex.: "https://chat-portifolio.vercel.app,http://localhost:5173"
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
 function isAllowed(origin?: string | null): boolean {
-  if (!origin) return true;
-  if (/\.vercel\.app$/.test(origin)) return true;
+  if (!origin) return true; // requests sem Origin (ex: curl)
+  if (/\.vercel\.app$/.test(origin)) return true; // qualquer *.vercel.app
   return ALLOWED_ORIGINS.includes(origin);
 }
 
@@ -35,7 +36,7 @@ setIO(io);
 io.on("connection", (socket) => handleSocketConnection(io, socket));
 
 const PORT = Number(process.env.PORT) || 4000;
-const HOST = "0.0.0.0"; // importante no Render
+const HOST = "0.0.0.0"; // 👈 importante no Render
 
 server.listen(PORT, HOST, () => {
   console.log(`🚀 Server rodando em http://${HOST}:${PORT}`);
