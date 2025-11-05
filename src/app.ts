@@ -1,4 +1,4 @@
-// src/app.ts
+
 import express from "express";
 import cors, { CorsOptions } from "cors";
 import dotenv from "dotenv";
@@ -23,12 +23,12 @@ const app = express();
  *  - mantém compatibilidade com CLIENT_URL (origem única, se existir)
  */
 const RAW = [
-  process.env.ALLOWED_ORIGINS || "",     // ex: "https://chat-portifolio.vercel.app,http://localhost:5173"
-  process.env.CLIENT_URL || "",          // compat: uma única origem antiga
+  process.env.ALLOWED_ORIGINS || "",
+  process.env.CLIENT_URL || "",
 ]
   .join(",")
   .split(",")
-  .map(s => s.trim())
+  .map((s) => s.trim())
   .filter(Boolean);
 
 function isAllowedOrigin(origin?: string | null) {
@@ -48,9 +48,9 @@ const corsOptions: CorsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// CORS **antes** de tudo e com resposta a preflight
+// CORS global + preflight (sem usar '*')
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options("(.*)", cors(corsOptions)); // << trocado aqui
 
 app.use(express.json());
 
@@ -59,7 +59,6 @@ app.use((req, _res, next) => {
   try {
     (req as any).io = getIO();
   } catch {
-    /* io ainda não setado no bootstrap (primeiras requisições) */
   }
   next();
 });
@@ -70,6 +69,9 @@ app.use("/api/rooms", roomRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/upload", uploadRoutes);
+
+// healthcheck pro Render
+app.get("/healthz", (_req, res) => res.status(200).send("ok"));
 
 // handler de erros
 app.use(errorHandler);
