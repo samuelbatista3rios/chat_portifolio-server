@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import app from "./app";
 import { handleSocketConnection } from "./socket/socketHandler";
 import { setIO } from "./io";
+import { connectDB } from "./config/db";
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
   .filter(Boolean);
 
 function isAllowed(origin?: string | null): boolean {
-  if (!origin) return true; // requests sem Origin (ex: curl)
+  if (!origin) return true;                      // requests sem Origin (ex: curl)
   if (/\.vercel\.app$/.test(origin)) return true; // qualquer *.vercel.app
   return ALLOWED_ORIGINS.includes(origin);
 }
@@ -36,8 +37,20 @@ setIO(io);
 io.on("connection", (socket) => handleSocketConnection(io, socket));
 
 const PORT = Number(process.env.PORT) || 4000;
-const HOST = "0.0.0.0"; // 👈 importante no Render
+const HOST = "0.0.0.0"; // importante no Render
 
-server.listen(PORT, HOST, () => {
-  console.log(`🚀 Server rodando em http://${HOST}:${PORT}`);
-});
+(async () => {
+  try {
+    console.log("🔌 Conectando ao Mongo...");
+    await connectDB();
+    console.log("✅ Mongo conectado.");
+
+    server.listen(PORT, HOST, () => {
+      console.log(`🚀 Server rodando em http://${HOST}:${PORT}`);
+    });
+  } catch (err) {
+    console.error("❌ Falha ao conectar no Mongo. Verifique MONGO_URI:", err);
+    // Em produção, é melhor encerrar o processo para o Render reiniciar:
+    process.exit(1);
+  }
+})();
