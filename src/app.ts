@@ -1,25 +1,23 @@
 import express from "express";
 import cors, { CorsOptions } from "cors";
 import dotenv from "dotenv";
-import { connectDB } from "./config/db";
 import authRoutes from "./routes/authRoutes";
 import roomRoutes from "./routes/roomRoutes";
 import messageRoutes from "./routes/messageRoutes";
 import userRoutes from "./routes/userRoutes";
-import { errorHandler } from "./middlewares/errorHandler";
 import uploadRoutes from "./routes/uploadRoutes";
+import { errorHandler } from "./middlewares/errorHandler";
 import { getIO } from "./io";
 
 dotenv.config();
-connectDB();
 
 const app = express();
 
 /**
  * CORS — aceita:
  *  - qualquer domínio *.vercel.app
- *  - os domínios listados em ALLOWED_ORIGINS (vírgula separada)
- *  - compatibilidade com CLIENT_URL (origem única legada)
+ *  - domínios em ALLOWED_ORIGINS (vírgula separada)
+ *  - compat com CLIENT_URL (legado)
  */
 const RAW = [
   process.env.ALLOWED_ORIGINS || "",
@@ -31,8 +29,8 @@ const RAW = [
   .filter(Boolean);
 
 function isAllowedOrigin(origin?: string | null) {
-  if (!origin) return true; // health-checks/curl/SSR
-  if (/\.vercel\.app$/.test(origin)) return true; // qualquer subdomínio da Vercel
+  if (!origin) return true;                 // health-checks/curl/SSR
+  if (/\.vercel\.app$/.test(origin)) return true; // qualquer *.vercel.app
   return RAW.includes(origin);
 }
 
@@ -47,19 +45,17 @@ const corsOptions: CorsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// CORS global + preflight (👈 sem usar '*', compatível com path-to-regexp v6)
+// CORS global + preflight (sem usar '*')
 app.use(cors(corsOptions));
 app.options("(.*)", cors(corsOptions));
 
 app.use(express.json());
 
-// injeta io no req para controllers que emitem eventos
+// injeta io no req
 app.use((req, _res, next) => {
   try {
     (req as any).io = getIO();
-  } catch {
-    /* io ainda não setado no bootstrap (primeiras requisições) */
-  }
+  } catch {}
   next();
 });
 
@@ -73,7 +69,7 @@ app.use("/api/upload", uploadRoutes);
 // healthcheck para o Render
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
 
-// handler de erros (deixa por último)
+// handler de erros (sempre por último)
 app.use(errorHandler);
 
 export default app;
